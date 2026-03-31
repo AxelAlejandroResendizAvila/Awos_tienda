@@ -13,7 +13,7 @@ const register = async (req, res) => {
         const passwordHash = await bcrypt.hash(password, salt);
 
         const newUser = await pool.query(
-            'INSERT INTO usuarios (email, password) VALUES ($1, $2) RETURNING id, email, rol',
+            'INSERT INTO usuarios (email, password) VALUES ($1, $2) RETURNING id, email, role AS rol',
             [email, passwordHash]
         );
 
@@ -34,7 +34,7 @@ const login = async (req, res) => {
         const isMatch = await bcrypt.compare(password, usuario.password);
         if (!isMatch) return res.status(400).json({ msg: "Credenciales inválidas" });
 
-        const payload = { id: usuario.id, rol: usuario.rol, email: usuario.email };
+        const payload = { id: usuario.id, rol: usuario.role, email: usuario.email };
         const token = jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: '1h' });
 
         res.json({ msg: "Bienvenido", token: token });
