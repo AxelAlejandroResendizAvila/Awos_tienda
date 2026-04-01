@@ -1,4 +1,37 @@
 const pool = require('../config/db');
+const https = require('https');
+
+const obtenerProductosFakeStore = async () => {
+    if (typeof fetch === 'function') {
+        const apiFetch = await fetch('https://fakestoreapi.com/products');
+        if (!apiFetch.ok) {
+            throw new Error(`FakeStore respondió con estado ${apiFetch.status}`);
+        }
+        return apiFetch.json();
+    }
+
+    return new Promise((resolve, reject) => {
+        https
+            .get('https://fakestoreapi.com/products', (res) => {
+                let data = '';
+                res.on('data', (chunk) => {
+                    data += chunk;
+                });
+                res.on('end', () => {
+                    if (res.statusCode < 200 || res.statusCode >= 300) {
+                        return reject(new Error(`FakeStore respondió con estado ${res.statusCode}`));
+                    }
+
+                    try {
+                        resolve(JSON.parse(data));
+                    } catch {
+                        reject(new Error('No se pudo parsear la respuesta de FakeStore'));
+                    }
+                });
+            })
+            .on('error', (err) => reject(err));
+    });
+};
 
 const poblarProductos = async (request, response) => {
     const client = await pool.connect();
@@ -6,8 +39,7 @@ const poblarProductos = async (request, response) => {
     try {
         await client.query('BEGIN');
 
-        const apiFetch = await fetch('https://fakestoreapi.com/products');
-        const products = await apiFetch.json();
+        const products = await obtenerProductosFakeStore();
 
         let inserciones = 0;
 
