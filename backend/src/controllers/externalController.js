@@ -1,25 +1,30 @@
 const pool = require('../config/db');
 const https = require('https');
+const FAKESTORE_URL = 'https://fakestoreapi.com/products?limit=20';
+const DUMMYJSON_URL = 'https://dummyjson.com/products?limit=20';
+const REQUEST_HEADERS = {
+    'User-Agent': 'awos-tienda-backend/1.0',
+    'Accept': 'application/json'
+};
 
-const obtenerProductosFakeStore = async () => {
+const fetchJson = async (url) => {
     if (typeof fetch === 'function') {
-        const apiFetch = await fetch('https://fakestoreapi.com/products');
+        const apiFetch = await fetch(url, { headers: REQUEST_HEADERS });
         if (!apiFetch.ok) {
-            throw new Error(`FakeStore respondió con estado ${apiFetch.status}`);
+            throw new Error(`API respondió con estado ${apiFetch.status}`);
         }
         return apiFetch.json();
     }
 
     return new Promise((resolve, reject) => {
-        https
-            .get('https://fakestoreapi.com/products', (res) => {
+        const request = https.request(url, { method: 'GET', headers: REQUEST_HEADERS }, (res) => {
                 let data = '';
                 res.on('data', (chunk) => {
                     data += chunk;
                 });
                 res.on('end', () => {
                     if (res.statusCode < 200 || res.statusCode >= 300) {
-                        return reject(new Error(`FakeStore respondió con estado ${res.statusCode}`));
+                        return reject(new Error(`API respondió con estado ${res.statusCode}`));
                     }
 
                     try {
@@ -28,9 +33,38 @@ const obtenerProductosFakeStore = async () => {
                         reject(new Error('No se pudo parsear la respuesta de FakeStore'));
                     }
                 });
-            })
-            .on('error', (err) => reject(err));
+            });
+
+        request.on('error', (err) => reject(err));
+        request.end();
     });
+};
+
+const obtenerProductosExternos = async () => {
+    try {
+        const fakeStore = await fetchJson(FAKESTORE_URL);
+        return fakeStore.map((p) => ({
+            title: p.title,
+            price: p.price,
+            description: p.description,
+            image: p.image,
+            category: p.category
+        }));
+    } catch (firstError) {
+        try {
+            const dummy = await fetchJson(DUMMYJSON_URL);
+            const items = Array.isArray(dummy.products) ? dummy.products : [];
+            return items.map((p) => ({
+                title: p.title,
+                price: p.price,
+                description: p.description,
+                image: p.thumbnail,
+                category: p.category
+            }));
+        } catch (secondError) {
+            throw new Error(`No se pudieron obtener productos externos. FakeStore: ${firstError.message}. DummyJSON: ${secondError.message}`);
+        }
+    }
 };
 
 const poblarProductos = async (request, response) => {
@@ -39,7 +73,7 @@ const poblarProductos = async (request, response) => {
     try {
         await client.query('BEGIN');
 
-        const products = await obtenerProductosFakeStore();
+        const products = await obtenerProductosExternos();
 
         let inserciones = 0;
 
