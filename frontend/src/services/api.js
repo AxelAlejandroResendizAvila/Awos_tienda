@@ -1,4 +1,4 @@
-const API_URL = "http://localhost:4000/api";
+const API_URL = "https://awos-tienda.onrender.com/api" || "http://localhost:4000/api";
 
 export const api = {
   get: async (endpoint) => {
