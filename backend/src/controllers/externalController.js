@@ -14,28 +14,32 @@ const poblarProductos = async (request, response) => {
         for (const product of products) {
             const { title, price, description, image, category } = product;
             const stock = Math.floor(Math.random() * 50) + 1;
-
-            const categoriaQuery = `
-                INSERT INTO categoria (nombre)
-                VALUES ($1)
-                ON CONFLICT ON CONSTRAINT categoria_nombre_unique
-                DO NOTHING
-                RETURNING id;
-            `;
-
-            let categoriaResult = await client.query(categoriaQuery, [category]);
+            const nombreProducto = title.substring(0, 250);
 
             let categoryId;
 
-            if (categoriaResult.rows.length > 0) {
-                categoryId = categoriaResult.rows[0].id;
+            const selectCategoria = `
+                SELECT id FROM categorias WHERE nombre = $1 LIMIT 1
+            `;
+            const existingCategory = await client.query(selectCategoria, [category]);
+
+            if (existingCategory.rows.length > 0) {
+                categoryId = existingCategory.rows[0].id;
             } else {
-                const selectCategoria = `
-                    SELECT id FROM categoria WHERE nombre = $1
+                const insertCategoria = `
+                    INSERT INTO categorias (nombre)
+                    VALUES ($1)
+                    RETURNING id
                 `;
-                const existing = await client.query(selectCategoria, [category]);
-                categoryId = existing.rows[0].id;
+                const categoriaResult = await client.query(insertCategoria, [category]);
+                categoryId = categoriaResult.rows[0].id;
             }
+
+            const existeProducto = await client.query(
+                'SELECT id FROM productos WHERE nombre = $1 LIMIT 1',
+                [nombreProducto]
+            );
+            if (existeProducto.rows.length > 0) continue;
 
             const productoQuery = `
                 INSERT INTO productos
@@ -44,7 +48,7 @@ const poblarProductos = async (request, response) => {
             `;
 
             await client.query(productoQuery, [
-                title,
+                nombreProducto,
                 price,
                 stock,
                 description,

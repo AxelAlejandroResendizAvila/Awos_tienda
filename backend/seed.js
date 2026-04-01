@@ -13,7 +13,7 @@ const poblarBaseDeDatos = async () => {
         // Recorremos el arreglo e insertamos uno por uno en nuestra base de datos
         for (const prod of productosFake) {
             const query = `
-                INSERT INTO productos (nombre, precio, stock, descripcion, imagen_url, categoria_id)
+                INSERT INTO productos (nombre, precio, stock, descripcion, imagen_url, id_categoria)
                 VALUES ($1, $2, $3, $4, $5, $6)
             `;
 
